@@ -15,6 +15,8 @@
 #include "Texture.h"
 #include "stb_image.h"
 
+#include "Node3D.h"
+
 #define _USE_MATH_DEFINES
 #include <math.h>
 
@@ -26,15 +28,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
-#define NUM_OBJ_FILES 4
 #define INIT_HEIGHT 680
 #define INIT_WIDTH 750
-#define MAX_OBJ 20
-#define MAX_SHAPES 30
-#define CUBE_INDEX 0
-#define TREE_INDEX 1
-#define HOLD_INDEX 2
-#define NUM_TREES 11
 
 #define MOUSE_SENSITIVITY_X 1.5
 #define MOUSE_SENSITIVITY_Y 1.5
@@ -62,12 +57,16 @@ public:
 	// Our shader programs
 	std::shared_ptr<Program> prog, progT, progC;
 
+	vector<shared_ptr<Node3D>> nodes;
+
 	// Our Textures:
 	shared_ptr<Texture> barkTexture, rockTexture,
 			            stoneWallTexture, rockRoadTexture;
 
 	// Shape to be used (from  file) - modify to support diff amount
-	shared_ptr<Shape> mesh[MAX_OBJ][MAX_SHAPES];
+	//shared_ptr<Shape> mesh[MAX_OBJ][MAX_SHAPES];
+	shared_ptr<unordered_map<string, shared_ptr<vector<shared_ptr<Shape>>>>> meshes = make_shared<unordered_map<string, shared_ptr<vector<shared_ptr<Shape>>>>>();
+
 
 	// Contains vertex information for OpenGL
 	GLuint VertexArrayID;
@@ -98,18 +97,6 @@ public:
 
 	// skybox info
 	int skyTextureID;
-
-	// Random Scale Array (see initRandomScale)
-	float randScales[NUM_TREES];
-
-	// create array of random floats [0, 1.0] for scaling trees in the forest
-	void initRandomScale()
-	{
-		for (int i = 0; i < NUM_TREES; i++)
-		{
-			randScales[i] = rand() * 1.0f / RAND_MAX;
-		}
-	}
 
 	void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
@@ -387,7 +374,6 @@ public:
 						};
 		skyTextureID = createSky(resourceDirectory + "/cracks/", faces);
 
-		initRandomScale();
 	}
 
 	void initGeom(const std::string & resourceDirectory, string* objFileName, int objc)
@@ -400,22 +386,44 @@ public:
 		for (int j = 0; j < objc; j++)
 		{
 			//load in the mesh and make the shape(s)
-			bool rc = tinyobj::LoadObj(TOshapes, objMaterials, errStr, (resourceDirectory + objFileName[j]).c_str());
+			bool rc = tinyobj::LoadObj(TOshapes, objMaterials, errStr, (resourceDirectory + "/" + objFileName[j]).c_str());
 			if (!rc)
 			{
 				cerr << errStr << endl;
 			}
 			else
 			{
+				vector<shared_ptr<Shape>> shapes;
+				//shared_ptr<Shape> *shapes = new shared_ptr<Shape>[TOshapes.size()];
 				for (int i = 0; i < TOshapes.size(); i++)
 				{
-					mesh[j][i] = make_shared<Shape>();
-					mesh[j][i]->createShape(TOshapes[i]);
-					mesh[j][i]->measure();
-					mesh[j][i]->init();
+					shared_ptr<Shape> m = make_shared<Shape>();
+					m->createShape(TOshapes[i]);
+					//if (TOshapes[i].mesh.material_ids.size() > 0) {
+					//	if (TOshapes[i].mesh.material_ids[0] >= 0 && objMaterials.size() >= 1) {
+					//		//m->setMat(objMaterials[TOshapes[i].mesh.material_ids[1]]);
+					//	}
+					//	else if (objMaterials.size() > 0) {
+					//		cout << objFileName[j] + to_string(i) << " no mat" << endl;
+					//		//m->setMat(objMaterials[0]);
+					//	}
+					//}
+
+					m->measure();
+					m->init();
+					shapes.push_back(m);
 				}
+				(*meshes)[objFileName[j]] = make_shared<vector<shared_ptr<Shape>>>(shapes);
 			}
 		}
+	}
+
+	void initScene() {
+		cout << "we did it" << endl;
+		shared_ptr<Node3D> n = make_shared<Node3D>((*meshes)["cube.obj"], progT);
+		cout << "here we are" << endl;
+		n->setScale(vec3(100, 1, 100));
+		nodes.push_back(n);
 	}
 
 	void setModel(std::shared_ptr<Program> prog, std::shared_ptr<MatrixStack>M) {
@@ -436,7 +444,7 @@ public:
 		Model->translate(vec3(0, -0.5, 0));
 		Model->scale(vec3(60.0, 1, 60.0));
 		setModel(progT, Model);
-		mesh[CUBE_INDEX][0]->draw(progT);
+		//mesh[CUBE_INDEX][0]->draw(progT);
 		Model->popMatrix();
 		rockRoadTexture->unbind();
 		progT->unbind();
@@ -460,7 +468,7 @@ public:
 		Model->scale(vec3(SKYBOX_SCALE));
 		setModel(progC, Model);
 
-		mesh[CUBE_INDEX][0]->draw(progC);
+		//mesh[CUBE_INDEX][0]->draw(progC);
 
 		Model->popMatrix();
 		Model->popMatrix();
@@ -493,7 +501,6 @@ public:
 		// Calculate time passed since last render
 		float seconds;
 		seconds = glfwGetTime() - oldTime;
-		printf("%f\n", seconds);
 		oldTime = glfwGetTime();
 
 		// Camera orientation
@@ -510,8 +517,16 @@ public:
 		glUniform1f(progT->getUniform("shine"), 1.0f);
 		glUniform1f(progT->getUniform("ambient"), 0.3f);
 
+
+		Model->pushMatrix();
+		Model->loadIdentity();
+			for (int i = 0; i < nodes.size(); i++) {
+				nodes[i]->draw(Model);
+			}
+		Model->popMatrix();
+
 		// draw scene elements
-		drawGround(Model);
+		//drawGround(Model);
 
 		//draw skybox scenery
 		drawSkyBox(Model, &View, Projection);
@@ -548,13 +563,14 @@ int main(int argc, char* argv[])
 	// may need to initialize or set up different data and state
 
 	// array of object file names
-	string objFiles[] = { "/cube.obj",
-						  "/Tree.obj",
-						  "/Rock1.obj",
-						  "/dummy.obj"};
+	string objFiles[] = { "cube.obj",
+						  "Tree.obj",
+						  "Rock1.obj",
+						  "dummy.obj"};
 
 	application->init(resourceDir);
-	application->initGeom(resourceDir, objFiles, NUM_OBJ_FILES);
+	application->initGeom(resourceDir, objFiles, 4);
+	application->initScene();
 
 	// Loop until the user closes the window.
 	while (!glfwWindowShouldClose(windowManager->getHandle()))
