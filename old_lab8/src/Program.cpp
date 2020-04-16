@@ -98,6 +98,7 @@ bool Program::init()
 void Program::bind()
 {
 	CHECKED_GL_CALL(glUseProgram(pid));
+
 }
 
 void Program::unbind()

@@ -16,6 +16,8 @@
 #include "stb_image.h"
 
 #include "Node3D.h"
+#include "CollectNode.h"
+#include "TextureShader.h"
 
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -58,6 +60,7 @@ public:
 	std::shared_ptr<Program> prog, progT, progC;
 
 	vector<shared_ptr<Node3D>> nodes;
+	shared_ptr<vector<shared_ptr<Collider>>> colliders = make_shared<vector<shared_ptr<Collider>>>();
 
 	// Our Textures:
 	shared_ptr<Texture> barkTexture, rockTexture,
@@ -218,27 +221,25 @@ public:
 		/* code to move game camera around */
 		float timeStep = seconds;
 		
-		vec3 toMove;
+		vec3 toMove = vec3(0, 0, 0);
 		if (movingA) {
-			toMove = -1.0f * vec3(u.x, 0, u.z) * SPEED * timeStep;
-			eye += toMove;
-			lookAtPos += toMove;
+			toMove += -1.0f * vec3(u.x, 0, u.z);
 		}
 		if (movingD) {
-			toMove = vec3(u.x, 0, u.z) * SPEED * timeStep;
-			eye += toMove;
-			lookAtPos += toMove;
+			toMove += vec3(u.x, 0, u.z);
 		}
 		if (movingW) {
-			toMove = -1.0f * vec3(w.x, 0, w.z) * SPEED * timeStep;
-			eye += toMove;
-			lookAtPos += toMove;
+			toMove += -1.0f * vec3(w.x, 0, w.z);
 		}
 		if (movingS) {
-			toMove = vec3(w.x, 0, w.z) * SPEED * timeStep;
-			eye += toMove;
-			lookAtPos += toMove;
+			toMove += vec3(w.x, 0, w.z);
 		}
+		if (toMove.x != 0 || toMove.z != 0) {
+			toMove = normalize(toMove) * SPEED * timeStep;
+		}
+
+		eye += toMove;
+		lookAtPos += toMove;
 	}
 
 	void resizeCallback(GLFWwindow* window, int width, int height)
@@ -314,6 +315,9 @@ public:
 		// Enable z-buffer test.
 		glEnable(GL_DEPTH_TEST);
 
+		initTex(resourceDirectory);
+
+
 		// Initialize the GLSL program with no textures
 		prog = make_shared<Program>();
 		prog->setVerbose(true);
@@ -333,7 +337,8 @@ public:
 		prog->addAttribute("vertTex");
 
 		// Initialize the second GLSL program with textures
-		progT = make_shared<Program>();
+		progT = make_shared<TextureShader>(rockRoadTexture, resourceDirectory);
+		/*progT = make_shared<Program>();
 		progT->setVerbose(true);
 		progT->setShaderNames(resourceDirectory + "/tex_vert.glsl", resourceDirectory + "/tex_fragTile.glsl");
 		progT->init();
@@ -347,9 +352,8 @@ public:
 		progT->addUniform("lightPos");
 		progT->addAttribute("vertPos");
 		progT->addAttribute("vertNor");
-		progT->addAttribute("vertTex");
+		progT->addAttribute("vertTex");*/
 
-		initTex(resourceDirectory);
 
 		// Initialize the third GLSL program with cube textures
 		progC = make_shared<Program>();
@@ -419,11 +423,16 @@ public:
 	}
 
 	void initScene() {
-		cout << "we did it" << endl;
 		shared_ptr<Node3D> n = make_shared<Node3D>((*meshes)["cube.obj"], progT);
-		cout << "here we are" << endl;
 		n->setScale(vec3(100, 1, 100));
 		nodes.push_back(n);
+		
+		for (int i = 0; i < 3; i++) {
+			shared_ptr<CollectNode> c = make_shared<CollectNode>((*((*meshes)["sphere.obj"]))[0], progT, vec3(i * 10 - 10, 10, 0), vec3(-i * 10 + 10, 0, 0));
+			c->setScale(vec3(1, 1, 1));
+			nodes.push_back(c);
+			colliders->push_back(c);
+		}
 	}
 
 	void setModel(std::shared_ptr<Program> prog, std::shared_ptr<MatrixStack>M) {
@@ -479,6 +488,8 @@ public:
 	}
 
 	void render() {
+
+
 		// Get current frame buffer size.
 		int width, height;
 		glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
@@ -507,7 +518,12 @@ public:
 		moveCamera(seconds);
 		mat4 View = glm::lookAt(eye, lookAtPos, up);
 		
-
+		for (int i = 0; i < nodes.size(); i++) {
+			nodes[i]->update(seconds);
+		}
+		for (int i = 0; i < colliders->size(); i++){
+			(*colliders)[i]->checkCollisions(colliders);
+		}
 		// Draw a stack of cubes with indiviudal transforms
 		progT->bind();
 		glUniformMatrix4fv(progT->getUniform("P"), 1, GL_FALSE, glm::value_ptr(Projection->topMatrix()));
@@ -563,13 +579,16 @@ int main(int argc, char* argv[])
 	// may need to initialize or set up different data and state
 
 	// array of object file names
-	string objFiles[] = { "cube.obj",
-						  "Tree.obj",
-						  "Rock1.obj",
-						  "dummy.obj"};
+	string objFiles[] = { 
+		"cube.obj",
+		"Tree.obj",
+		"Rock1.obj",
+		"dummy.obj",
+		"sphere.obj"
+	};
 
 	application->init(resourceDir);
-	application->initGeom(resourceDir, objFiles, 4);
+	application->initGeom(resourceDir, objFiles, 5);
 	application->initScene();
 
 	// Loop until the user closes the window.
