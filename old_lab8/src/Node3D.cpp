@@ -23,10 +23,14 @@ Node3D::Node3D(shared_ptr<vector<shared_ptr<Shape>>> meshes, shared_ptr<Program>
 
 void Node3D::draw(shared_ptr<MatrixStack> model)
 {
+	if (dead) {
+		return;
+	}
 	model->pushMatrix();
 
 	//place at position
 	model->translate(position + rOffset * scale);
+	//cout << position.x << position.y << position.z << endl;
 
 	//rotate
 	model->rotate(rotation.y, vec3(0, 1, 0));

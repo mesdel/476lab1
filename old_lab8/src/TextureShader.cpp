@@ -1,6 +1,6 @@
 #include "TextureShader.h"
 
-TextureShader::TextureShader(shared_ptr<Texture> t, string resourceDirectory)
+TextureShader::TextureShader(shared_ptr<Texture> t, string resourceDirectory, float repeatCoeff)
 {
 	setVerbose(true);
 	setShaderNames(resourceDirectory + "/tex_vert.glsl", resourceDirectory + "/tex_fragTile.glsl");
@@ -17,11 +17,12 @@ TextureShader::TextureShader(shared_ptr<Texture> t, string resourceDirectory)
 	addAttribute("vertNor");
 	addAttribute("vertTex");
 	texture = t;
+	this->repeatCoeff = repeatCoeff;
 }
 
 void TextureShader::bind() {
 	Program::bind();
-	glUniform1f(getUniform("repeatCoeff"), 10.0f);
+	glUniform1f(getUniform("repeatCoeff"), repeatCoeff);
 	texture->bind(getUniform("Texture0"));
 
 }

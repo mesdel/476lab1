@@ -57,14 +57,14 @@ public:
 	WindowManager* windowManager = nullptr;
 
 	// Our shader programs
-	std::shared_ptr<Program> prog, progT, progC;
+	std::shared_ptr<Program> prog, progT, progC, progE;
 
 	vector<shared_ptr<Node3D>> nodes;
 	shared_ptr<vector<shared_ptr<Collider>>> colliders = make_shared<vector<shared_ptr<Collider>>>();
 
 	// Our Textures:
 	shared_ptr<Texture> barkTexture, rockTexture,
-			            stoneWallTexture, rockRoadTexture;
+			            stoneWallTexture, rockRoadTexture, eyeTexture;
 
 	// Shape to be used (from  file) - modify to support diff amount
 	//shared_ptr<Shape> mesh[MAX_OBJ][MAX_SHAPES];
@@ -82,7 +82,9 @@ public:
 
 	// material/shading information
 	int matState = 0;
-	vec3 lightPos = vec3(-2.0f, 4.0f, 2.0f);
+	vec3 lightPos = vec3(-2.0f, 20.0f, 2.0f);
+
+	int score = 0;
 
 	// camera information
 	double oldMouseX = 0;
@@ -131,7 +133,7 @@ public:
 		if (key == GLFW_KEY_S && action == GLFW_RELEASE) {
 			movingS = 0;
 		}
-		if ((key == GLFW_KEY_RIGHT_SHIFT || key == GLFW_KEY_LEFT_SHIFT) && 
+		/*if ((key == GLFW_KEY_RIGHT_SHIFT || key == GLFW_KEY_LEFT_SHIFT) && 
 			(action == GLFW_PRESS || action == GLFW_REPEAT)) {
 			eye -= vec3(v.x * SPEED, v.y * SPEED, v.z * SPEED);
 			lookAtPos -= vec3(v.x * SPEED, v.y * SPEED, v.z * SPEED);
@@ -139,7 +141,7 @@ public:
 		if (key == GLFW_KEY_SPACE && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
 			eye += vec3(v.x * SPEED, v.y * SPEED, v.z * SPEED);
 			lookAtPos += vec3(v.x * SPEED, v.y * SPEED, v.z * SPEED);
-		}
+		}*/
 		if (key == GLFW_KEY_Z && action == GLFW_PRESS) {
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		}
@@ -304,6 +306,13 @@ public:
 		rockRoadTexture->init();
 		rockRoadTexture->setUnit(2);
 		rockRoadTexture->setWrapModes(GL_REPEAT, GL_REPEAT);
+
+		eyeTexture = make_shared<Texture>();
+		eyeTexture->setFilename(resourceDirectory + "/Earth_TEXTURE_CM.tga");
+		eyeTexture->init();
+		eyeTexture->setUnit(2);
+		eyeTexture->setWrapModes(GL_REPEAT, GL_REPEAT);
+
 	}
 
 	void init(const std::string& resourceDirectory)
@@ -337,7 +346,8 @@ public:
 		prog->addAttribute("vertTex");
 
 		// Initialize the second GLSL program with textures
-		progT = make_shared<TextureShader>(rockRoadTexture, resourceDirectory);
+		progT = make_shared<TextureShader>(rockRoadTexture, resourceDirectory, 10);
+		progE = make_shared<TextureShader>(eyeTexture, resourceDirectory, 1);
 		/*progT = make_shared<Program>();
 		progT->setVerbose(true);
 		progT->setShaderNames(resourceDirectory + "/tex_vert.glsl", resourceDirectory + "/tex_fragTile.glsl");
@@ -422,14 +432,18 @@ public:
 		}
 	}
 
+	float randRange(float min, float max) {
+		return ((max - min) * float(rand()) / float(RAND_MAX)) + min;
+	}
+
 	void initScene() {
 		shared_ptr<Node3D> n = make_shared<Node3D>((*meshes)["cube.obj"], progT);
 		n->setScale(vec3(100, 1, 100));
 		nodes.push_back(n);
 		
-		for (int i = 0; i < 3; i++) {
-			shared_ptr<CollectNode> c = make_shared<CollectNode>((*((*meshes)["sphere.obj"]))[0], progT, vec3(i * 10 - 10, 10, 0), vec3(-i * 10 + 10, 0, 0));
-			c->setScale(vec3(1, 1, 1));
+		for (int i = 0; i < 10; i++) {
+			shared_ptr<CollectNode> c = make_shared<CollectNode>((*((*meshes)["Earth.obj"]))[0], progE, vec3(randRange(-20, 20), 1.5, randRange(-20, 20)), 3.f * vec3(randRange(-5, 5), 0, randRange(-5, 5)));
+			c->setScale(vec3(.4));
 			nodes.push_back(c);
 			colliders->push_back(c);
 		}
@@ -518,12 +532,36 @@ public:
 		moveCamera(seconds);
 		mat4 View = glm::lookAt(eye, lookAtPos, up);
 		
+		vector<int> deadList;
 		for (int i = 0; i < nodes.size(); i++) {
 			nodes[i]->update(seconds);
+			if (nodes[i]->isDead()) {
+				deadList.push_back(i);
+			}
+		}
+		for (int i = 0; i < deadList.size(); i++) {
+			nodes.erase(nodes.begin() + deadList[i] - i);
 		}
 		for (int i = 0; i < colliders->size(); i++){
 			(*colliders)[i]->checkCollisions(colliders);
 		}
+
+		//check player collision
+		deadList.clear();
+		for (int i = 0; i < colliders->size(); i++) {
+			vec3 dif = (*colliders)[i]->getPos() - eye;
+			if (dif.x * dif.x + dif.y * dif.y + dif.z * dif.z < 4) {
+				(*colliders)[i]->kill();
+				deadList.push_back(i);
+				score++;
+				cout << score << " worlds destroyed" << endl;
+				cout << colliders->size() - 1<< " worlds remaining" << endl;
+			}
+		}
+		for (int i = 0; i < deadList.size(); i++) {
+			(*colliders).erase((*colliders).begin() + deadList[i] - i);
+		}
+
 		// Draw a stack of cubes with indiviudal transforms
 		progT->bind();
 		glUniformMatrix4fv(progT->getUniform("P"), 1, GL_FALSE, glm::value_ptr(Projection->topMatrix()));
@@ -533,6 +571,13 @@ public:
 		glUniform1f(progT->getUniform("shine"), 1.0f);
 		glUniform1f(progT->getUniform("ambient"), 0.3f);
 
+
+		progE->bind();
+		glUniformMatrix4fv(progE->getUniform("P"), 1, GL_FALSE, glm::value_ptr(Projection->topMatrix()));
+		glUniformMatrix4fv(progE->getUniform("V"), 1, GL_FALSE, glm::value_ptr(View));
+		glUniform3f(progE->getUniform("lightPos"), lightPos.x, lightPos.y, lightPos.z);
+		glUniform1f(progE->getUniform("shine"), 1.0f);
+		glUniform1f(progE->getUniform("ambient"), 0.3f);
 
 		Model->pushMatrix();
 		Model->loadIdentity();
@@ -584,11 +629,12 @@ int main(int argc, char* argv[])
 		"Tree.obj",
 		"Rock1.obj",
 		"dummy.obj",
-		"sphere.obj"
+		"sphere.obj",
+		"Earth.obj"
 	};
 
 	application->init(resourceDir);
-	application->initGeom(resourceDir, objFiles, 5);
+	application->initGeom(resourceDir, objFiles, 6);
 	application->initScene();
 
 	// Loop until the user closes the window.

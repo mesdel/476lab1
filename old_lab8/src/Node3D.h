@@ -31,6 +31,9 @@ public:
 	void setRAnchor(vec3 a);
 	vec3 getOffset();
 	void addChild(shared_ptr<Node3D> child, bool sameObj = false);
+	bool isDead() {
+		return dead;
+	}
 	virtual void update(double delta);
 
 protected:
@@ -46,5 +49,6 @@ protected:
 	vec3 rotation = vec3(0.0, 0.0, 0.0);
 	vec3 scale = vec3(1.0, 1.0, 1.0);
 	shared_ptr<material_t> mat;
+	bool dead = false;
 };
 
