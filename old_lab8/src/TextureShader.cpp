@@ -11,6 +11,7 @@ TextureShader::TextureShader(shared_ptr<Texture> t, string resourceDirectory, fl
 	addUniform("repeatCoeff");
 	addUniform("Texture0");
 	addUniform("ambient");
+	addUniform("specColor");
 	addUniform("shine");
 	addUniform("lightPos");
 	addAttribute("vertPos");

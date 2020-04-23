@@ -1,0 +1,40 @@
+# 3ds Max Wavefront OBJ Exporter v0.97b - (c)2007 guruware
+# File Created: 02.04.2012 12:47:17
+
+newmtl wire_184155229
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.7216 0.6078 0.8980
+	Kd 0.7216 0.6078 0.8980
+	Ks 0.3500 0.3500 0.3500
+
+newmtl Material__1
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.2706 0.1255 0.0000
+	Kd 0.2706 0.1255 0.0000
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.1333 0.1333 0.1333
+	map_Ka E:\my 3d models\projects\body parts\eyeballs\eyes_blue.jpg
+	map_Kd E:\my 3d models\projects\body parts\eyeballs\eyes_blue.jpg
+
+newmtl Material__2
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.0000 0.0000 0.0000
+	Kd 0.0000 0.0000 0.0000
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_Ka E:\my 3d models\projects\body parts\eyeballs\eyes_blue.jpg
+	map_Kd E:\my 3d models\projects\body parts\eyeballs\eyes_blue.jpg

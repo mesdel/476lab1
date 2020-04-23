@@ -70,6 +70,7 @@ public:
 	//shared_ptr<Shape> mesh[MAX_OBJ][MAX_SHAPES];
 	shared_ptr<unordered_map<string, shared_ptr<vector<shared_ptr<Shape>>>>> meshes = make_shared<unordered_map<string, shared_ptr<vector<shared_ptr<Shape>>>>>();
 
+	shared_ptr<Node3D> skybox;
 
 	// Contains vertex information for OpenGL
 	GLuint VertexArrayID;
@@ -99,6 +100,11 @@ public:
 	vec3 u, v, w;
 	short int movingA, movingW, movingS, movingD, movingDown;
 	double oldTime = glfwGetTime();
+
+	double spawnTime = 3.f;
+	int totalSpawns = 0;
+	int maxSpawns = 30;
+	double nextSpawnTime = 5.f;
 
 	// skybox info
 	int skyTextureID;
@@ -263,7 +269,7 @@ public:
 				stbi_load((dir + faces[i]).c_str(), &width, &height, &nrChannels, 0);
 			if (data) {
 				glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-					0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+					0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 			}
 			else {
 				cout << "failed to load: " << (dir + faces[i]).c_str() << endl;
@@ -379,12 +385,12 @@ public:
 		progC->addAttribute("vertTex");
 
 		vector<std::string> faces{
-						"vc_rt.tga",
-						"vc_lf.tga",
-						"vc_up.tga",
-						"vc_dn.tga",
-						"vc_ft.tga",
-						"vc_bk.tga"
+						"Left.png",
+						"Right.png",
+						"Up.png",
+						"Down.png",
+						"Front.png",
+						"Back.png"
 						};
 		skyTextureID = createSky(resourceDirectory + "/cracks/", faces);
 
@@ -440,13 +446,16 @@ public:
 		shared_ptr<Node3D> n = make_shared<Node3D>((*meshes)["cube.obj"], progT);
 		n->setScale(vec3(100, 1, 100));
 		nodes.push_back(n);
+		skybox = make_shared<Node3D>((*meshes)["cube.obj"], progC);
+		skybox->setScale(vec3(SKYBOX_SCALE));
+
 		
-		for (int i = 0; i < 10; i++) {
+		/*for (int i = 0; i < 10; i++) {
 			shared_ptr<CollectNode> c = make_shared<CollectNode>((*((*meshes)["Earth.obj"]))[0], progE, vec3(randRange(-20, 20), 1.5, randRange(-20, 20)), 3.f * vec3(randRange(-5, 5), 0, randRange(-5, 5)));
 			c->setScale(vec3(.4));
 			nodes.push_back(c);
 			colliders->push_back(c);
-		}
+		}*/
 	}
 
 	void setModel(std::shared_ptr<Program> prog, std::shared_ptr<MatrixStack>M) {
@@ -484,16 +493,13 @@ public:
 		//bind the cube map texture
 		glBindTexture(GL_TEXTURE_CUBE_MAP, skyTextureID);
 
+		skybox->setPos(eye);
+
 		// draw box 
 		Model->pushMatrix();
-		Model->loadIdentity();
-		Model->pushMatrix();
-		Model->scale(vec3(SKYBOX_SCALE));
-		setModel(progC, Model);
-
-		//mesh[CUBE_INDEX][0]->draw(progC);
-
-		Model->popMatrix();
+		//Model->scale(vec3(SKYBOX_SCALE));
+		//setModel(progC, Model);
+		skybox->draw(Model);
 		Model->popMatrix();
 
 		//set the depth test back to normal!
@@ -528,6 +534,19 @@ public:
 		seconds = glfwGetTime() - oldTime;
 		oldTime = glfwGetTime();
 
+		nextSpawnTime -= seconds;
+		if (totalSpawns < maxSpawns && nextSpawnTime <= 0) {
+			shared_ptr<CollectNode> c = make_shared<CollectNode>((*((*meshes)["Earth.obj"]))[0], progE, vec3(randRange(-20, 20), 1.5, randRange(-20, 20)), 3.f * vec3(randRange(-5, 5), 0, randRange(-5, 5)));
+			c->setScale(vec3(.4));
+			nodes.push_back(c);
+			colliders->push_back(c);
+
+			cout << "A new challenger has arrived, there are now " << colliders->size() << " worlds left to collect.\n";
+
+			totalSpawns++;
+			nextSpawnTime = spawnTime;
+		}
+
 		// Camera orientation
 		moveCamera(seconds);
 		mat4 View = glm::lookAt(eye, lookAtPos, up);
@@ -554,8 +573,9 @@ public:
 				(*colliders)[i]->kill();
 				deadList.push_back(i);
 				score++;
-				cout << score << " worlds destroyed" << endl;
-				cout << colliders->size() - 1<< " worlds remaining" << endl;
+				cout << score << " out of " << totalSpawns << " worlds destroyed.\n";
+				//cout << score << " worlds destroyed" << endl;
+				//cout << colliders->size() - 1<< " worlds remaining" << endl;
 			}
 		}
 		for (int i = 0; i < deadList.size(); i++) {
@@ -581,6 +601,7 @@ public:
 
 		Model->pushMatrix();
 		Model->loadIdentity();
+			drawSkyBox(Model, &View, Projection);
 			for (int i = 0; i < nodes.size(); i++) {
 				nodes[i]->draw(Model);
 			}
@@ -590,8 +611,6 @@ public:
 		//drawGround(Model);
 
 		//draw skybox scenery
-		drawSkyBox(Model, &View, Projection);
-
 		// Pop matrix stacks.
 		Projection->popMatrix();
 
