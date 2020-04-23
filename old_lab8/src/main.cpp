@@ -302,7 +302,7 @@ public:
 		stoneWallTexture->setWrapModes(GL_REPEAT, GL_REPEAT);
 
 		rockRoadTexture = make_shared<Texture>();
-		rockRoadTexture->setFilename(resourceDirectory + "/redRoad.jpg");
+		rockRoadTexture->setFilename(resourceDirectory + "/512.png");
 		rockRoadTexture->init();
 		rockRoadTexture->setUnit(2);
 		rockRoadTexture->setWrapModes(GL_REPEAT, GL_REPEAT);
@@ -346,7 +346,7 @@ public:
 		prog->addAttribute("vertTex");
 
 		// Initialize the second GLSL program with textures
-		progT = make_shared<TextureShader>(rockRoadTexture, resourceDirectory, 10);
+		progT = make_shared<TextureShader>(rockRoadTexture, resourceDirectory, 20);
 		progE = make_shared<TextureShader>(eyeTexture, resourceDirectory, 1);
 		/*progT = make_shared<Program>();
 		progT->setVerbose(true);
